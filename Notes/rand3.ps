@@ -1,0 +1,176 @@
+$startTime = Get-Date
+$URL = 'https://login.umoja.un.org'
+$applicationName = 'LOGINUMOJA'
+
+$ScomAPI = New-Object -comObject "MOM.ScriptAPI"
+$PropertyBag = $ScomAPI.CreatePropertyBag()
+$ErrorActionPreference = 'SilentlyContinue'
+
+#region XPATH REFERENCES
+$usernameBox = '//*[@id="i0116"]'
+$nextButton = '//*[@id="idSIButton9"]'
+$passWordBox = '//*[@id="passwordInput"]'
+$submitButton = '//*[@id="submitButton"]'
+$allButton = '//*[@id="allAppsFilterBtn"]'
+
+$umojaButtonsHT = @{
+    BPC_Budget_Formulation = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[1]';
+    BPC_Finantial_Statements = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[2]';
+    DSS_EO_Report = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[3]';
+    Fundraising = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[4]';
+    IBP_DEV = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[5]';
+    iNeed = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[6]';
+    iNeed_Self_Service = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[7]';
+    Material_and_Service_Master_Tool = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[8]';
+    Payroll_Analysis_Tool = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[9]';
+    PMO_Umoja = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[10]';
+    SAP_GUI = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[11]';
+    Supply_Chain_Planning_Tool = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[12]';
+    Umoja_BI_Portal = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[13]';
+    Umoja_ECC_System_1 = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[14]';
+    Umoja_Identity_Manager = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[15]';
+    Umoja_Mobile = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[16]';
+    Umoja_Non_Production_Portal_Systems = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[17]';
+    Umoja_People = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[18]';
+    Umoja_Portal = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[19]';
+    Umoja_Production = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[20]';
+    Umoja_Strategy_Management = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[21]';
+    Uniformed_Capabilities_Mgmt = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[22]';
+    Unite_Identity_EIDMS = '//*[@id="home-screen"]/div[2]/section[5]/div[5]/div/ul/li[23]'
+}
+#endregion
+
+#region PARAMETERS
+$waitTime = 300
+$ListOfErrors = New-Object -TypeName "System.Collections.ArrayList"
+#endregion
+
+#region CREDENTIALS
+$username = 'test-umoja-citrix@un.org'
+$password = Get-Content D:\Selenium\securedPassword.txt | ConvertTo-SecureString
+$passwordPlan = [Net.NetworkCredential]::new('', $password).Password
+#endregion
+
+#region FirefoxSETUP
+# Your working directory
+$workingPath = 'D:\Selenium'
+# Add the working directory to the environment path.
+# This is required for the FirefoxDriver to work.
+if (($env:Path -split ';') -notcontains $workingPath) {
+    $env:Path += ";$workingPath"
+}
+# Import Selenium to PowerShell using the Add-Type cmdlet.
+Add-Type -Path "D:\Selenium\WebDriver.dll"
+Add-Type -Path "D:\Selenium\WebDriver.Support.dll"
+#endregion
+
+function ExecuteMainLogic {
+$FirefoxOptions = New-Object OpenQA.Selenium.Firefox.FirefoxOptions
+$FirefoxOptions.AddArguments('-headless')
+$FirefoxDriver = New-Object OpenQA.Selenium.Firefox.FirefoxDriver($FirefoxOptions)
+$FirefoxDriverWait = New-Object OpenQA.Selenium.Support.UI.WebDriverWait ($FirefoxDriver, [System.TimeSpan]::FromSeconds($waitTime))
+$FirefoxDriver.Navigate().GoToURL($URL)
+function TakeScreenShot
+{
+    $path = "\\dfs-scomapp-02\Selenium\$($applicationName)"
+    #Create the folder to store screenshots if it does not exist already
+    if (Test-path $path) {
+       #path exists, no action needed
+    }else{
+        #path does not exist, we need to create it
+        New-Item $path -ItemType Directory #createDirectory
+    }
+    $date = Get-Date -format "yyyyMMddHHmm"
+    $filename= "$($date)_$($applicationName).jpeg"
+    $Screenshot=$FirefoxDriver.GetScreenshot()
+    $Screenshot.SaveAsFile($path + '\' +  $filename, [OpenQA.Selenium.ScreenshotImageFormat]::Jpeg)
+}
+#Test initial URL access by checking the username Box 
+$FirefoxDriver.FindElementByXPath($usernameBox)
+$FirefoxDriverWait.Until([System.Func[OpenQA.Selenium.IWebDriver, System.Boolean]] { param($FirefoxDriver) Try { $FirefoxDriver.FindElement([OpenQA.Selenium.By]::XPath($usernameBox)) } Catch { $null } })
+if ($FirefoxDriver.FindElements([OpenQA.Selenium.By]::XPath($usernameBox)).Count -gt 0) #Verify that the usernameBox is present
+{
+    $FirefoxDriver.FindElement([OpenQA.Selenium.By]::XPath($usernameBox)).SendKeys($username)
+    $FirefoxDriver.FindElement([OpenQA.Selenium.By]::XPath($nextButton)).Click()
+}else{
+    PassErrorCode 1 "The website $URL may be down or the redirection might have failed. Username login box was NOT found."
+    TakeScreenShot
+    $FirefoxDriver.Quit()
+    exit
+}
+#Test the next passwordBox
+$FirefoxDriver.FindElementByXPath($passWordBox)
+$FirefoxDriverWait.Until([System.Func[OpenQA.Selenium.IWebDriver, System.Boolean]] { param($FirefoxDriver) Try { $FirefoxDriver.FindElement([OpenQA.Selenium.By]::XPath($passWordBox)) } Catch { $null } })
+if ($FirefoxDriver.FindElements([OpenQA.Selenium.By]::XPath($passWordBox)).Count -gt 0 -and $FirefoxDriver.FindElements([OpenQA.Selenium.By]::XPath($submitButton)).Count -gt 0)
+{
+    $FirefoxDriver.FindElement([OpenQA.Selenium.By]::XPath($passWordBox)).SendKeys($passwordPlan)
+    $FirefoxDriver.FindElement([OpenQA.Selenium.By]::XPath($submitButton)).Click()    
+
+}else {
+    PassErrorCode 1 "The website $URL may be down or the redirection could have failed."
+    TakeScreenShot
+    $FirefoxDriver.Quit()
+    exit
+}
+#Test the next website element
+$FirefoxDriver.FindElementByXPath($allButton)
+$FirefoxDriverWait.Until([System.Func[OpenQA.Selenium.IWebDriver, System.Boolean]] { param($FirefoxDriver) Try { $FirefoxDriver.FindElement([OpenQA.Selenium.By]::XPath($allButton)) } Catch { $null } })
+Start-Sleep -Seconds 10 #this wait time is needed as the all button view flickers when the site is loaded, it needs to be pressed after a few seconds.
+
+if ($FirefoxDriver.FindElements([OpenQA.Selenium.By]::XPath($allButton)).Count -gt 0)
+{ 
+    $FirefoxDriver.FindElement([OpenQA.Selenium.By]::XPath($allButton)).Click() 
+}
+else 
+{
+    PassErrorCode 2 "SCOM was unable to login in site: $URL. Please attempt a manual login."
+    TakeScreenShot
+    $FirefoxDriver.Quit()
+    exit
+}
+
+Start-Sleep -Seconds 2 #Manual wait required
+#TEST IF ALL THE BUTTONS ARE Present
+foreach ($item in $umojaButtonsHT.GetEnumerator())
+{
+    if ($FirefoxDriver.FindElements([OpenQA.Selenium.By]::XPath($item.Value)).Count -eq 0)
+    {
+        $ListOfErrors.Add($($item.Name))
+        Write-Host "element $($item.Name) was not found"
+    }
+}
+
+
+#check if any app is missing to determine the code
+if ($ListOfErrors.Count -gt 0) 
+{
+    PassErrorCode 3 "One or more applications are missing from Umoja Portal: $URL. `Applications missing: $ListOfErrors"
+    TakeScreenShot
+
+    
+}else {
+    PassErrorCode 0 'There is no error'
+
+}
+
+function MainFunction {
+    for ($i=0; $i -lt 3; $i++) {
+        $result = ExecuteMainLogic
+        if ($result -eq 0) {
+            break
+        } else {
+            Start-Sleep -Seconds 120  # wait 2 minutes before next attempt
+        }
+    }
+
+    switch ($result) {
+        0 { PassErrorCode 0 'There is no error' }
+        1 { PassErrorCode 1 "The website $URL may be down or the redirection might have failed. Username login box was NOT found." }
+        2 { PassErrorCode 2 "SCOM was unable to login in site: $URL. Please attempt a manual login." }
+        3 { PassErrorCode 3 "One or more applications are missing from Umoja Portal: $URL. `Applications missing: $ListOfErrors" }
+    }
+
+    return $PropertyBag
+}
+
+MainFunction
